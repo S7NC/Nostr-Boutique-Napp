@@ -1,0 +1,8 @@
+{
+  "merchantNpub": "npub1equrmqway3qxw3dkssymusxkwgwrqypfgeqx0lx9pgjam7gnj4ysaqhkj6",
+  "discoveryRelays": [
+    "wss://relay.ditto.pub",
+    "wss://relay.damus.io",
+    "wss://relay.primal.net"
+  ]
+}

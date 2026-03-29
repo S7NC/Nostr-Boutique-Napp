@@ -1,8 +1,37 @@
 @import "tailwindcss";
 
-* {
-  @apply text-purple-950;
+:root {
+  --bg: #0f1316;
+  --surface: #171d22;
+  --line: #2f3942;
+  --text: #e7ecef;
+  --muted: #9ba7b0;
+  --brand: #14b8a6;
+  --brand-strong: #0d9488;
+  --accent: #f59e0b;
 }
+
+html[data-theme="light"] {
+  --bg: #f8f7f4;
+  --surface: #fffdf8;
+  --line: #ddd4c8;
+  --text: #1f221f;
+  --muted: #657168;
+  --brand: #0f766e;
+  --brand-strong: #115e59;
+}
+
+body {
+  background: radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--brand) 18%, var(--bg)) 0%, var(--bg) 45%, color-mix(in srgb, var(--accent) 12%, var(--bg)) 100%);
+  color: var(--text);
+  font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+}
+
 a {
-  @apply accent-purple-900 underline hover:no-underline;
+  color: var(--brand);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
