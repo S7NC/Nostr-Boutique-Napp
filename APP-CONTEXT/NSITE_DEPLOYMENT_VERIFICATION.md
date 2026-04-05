@@ -6,7 +6,7 @@ This keypair was generated for deployment verification in this session.
 
 - `npub`: `npub1x8q6jcdpkmxmsj6zne3mg0l35azenr550ajvcj96tqv5fdz2q06q255lh9`
 - `pubkey`: `31c1a961a1b6cdb84b429e63b43ff1a745998e947f64cc48ba581944b44a03f4`
-- `nsec`: `nsec1msg5avgjjl57s78j5ftnt72emg0rn3pj6dwpd7yrzhzawwr36eas6ym8fe`
+- `nsec`: `[REDACTED - rotate and provide at runtime only]`
 
 > Security note: rotate this key for production use and keep `nsec` private.
 
