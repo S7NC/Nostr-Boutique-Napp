@@ -1,8 +1,6 @@
 <script setup>
 import { useTheme } from '~/composables/useTheme'
-import { useShopIdentity } from '~/composables/useShopIdentity'
-import { useRelayLists } from '~/composables/useRelayLists'
-import { useMarketplace } from '~/composables/useMarketplace'
+import { useShopBootstrap } from '~/composables/useShopBootstrap'
 
 defineProps({
   itemCount: {
@@ -20,9 +18,7 @@ defineProps({
 })
 
 const { theme, initializeTheme, toggleTheme } = useTheme()
-const { resolveIdentity } = useShopIdentity()
-const { resolveRelayMap } = useRelayLists()
-const { fetchProducts } = useMarketplace()
+const { ensureBootstrap } = useShopBootstrap()
 const NOSTR_OSTRICH_ICON_URL = '/nostr-assets/nostr-logo-black.svg'
 
 const route = useRoute()
@@ -41,16 +37,8 @@ const loadSearchInventory = async () => {
   searchError.value = ''
 
   try {
-    const identity = await resolveIdentity()
-    const relayMap = await resolveRelayMap({
-      merchantPubkey: identity.merchantPubkey,
-      discoveryRelays: identity.discoveryRelays
-    })
-
-    searchInventory.value = await fetchProducts({
-      merchantPubkey: identity.merchantPubkey,
-      relays: relayMap.merchantOutbox
-    })
+    const bootstrap = await ensureBootstrap()
+    searchInventory.value = bootstrap.products || []
     hasLoadedSearchInventory.value = true
   } catch (cause) {
     searchError.value = cause.message || 'Could not load products for search.'

@@ -1,8 +1,5 @@
 <script setup>
-import { useShopIdentity } from '~/composables/useShopIdentity'
-import { useRelayLists } from '~/composables/useRelayLists'
-import { useMarketplace } from '~/composables/useMarketplace'
-import { useMerchantProfile } from '~/composables/useMerchantProfile'
+import { useShopBootstrap } from '~/composables/useShopBootstrap'
 import { useShopDebug } from '~/composables/useShopDebug'
 import { useCartStore } from '~/stores/cart'
 import ShopHeader from '~/components/shop/ShopHeader.vue'
@@ -14,96 +11,42 @@ useSeoMeta({
 })
 
 const cart = useCartStore()
-const { resolveIdentity } = useShopIdentity()
-const { resolveRelayMap } = useRelayLists()
-const { fetchProducts } = useMarketplace()
-const { fetchMerchantProfile } = useMerchantProfile()
+const { ensureBootstrap, bootstrapState } = useShopBootstrap()
 const { setShopDebug } = useShopDebug()
 
 const loading = ref(true)
 const error = ref('')
 const relayWarning = ref('')
-const merchantNpub = ref('')
-const products = ref([])
-const merchantProfile = ref(null)
+const merchantNpub = ref(bootstrapState.value.identity?.merchantNpub || '')
+const products = ref(bootstrapState.value.products || [])
+const merchantProfile = ref(bootstrapState.value.merchantProfile || null)
 const hasConfirmedProductQuery = ref(false)
 const showNoProductsDialog = ref(false)
-
-const isRelayIssue = (cause) => {
-  const text = String(cause?.message || cause || '').toLowerCase()
-  return [
-    'relay',
-    'websocket',
-    'connection',
-    'network',
-    'timeout',
-    'timed out',
-    'fetch failed',
-    'econn'
-  ].some((key) => text.includes(key))
-}
 
 const latestProducts = computed(() => products.value.slice(0, 3))
 const inventoryProducts = computed(() => products.value.slice(3, 15))
 
 onMounted(async () => {
-  let identity = null
-  let relayMap = null
-
   try {
-    identity = await resolveIdentity()
-    merchantNpub.value = identity.merchantNpub
-    console.log('[shop] resolved identity', identity)
-  } catch (cause) {
-    relayWarning.value = 'Could not resolve merchant identity from this host/config.'
-    error.value = ''
-    console.error('[shop] failed resolving identity', cause)
-    loading.value = false
-    return
-  }
+    const bootstrap = await ensureBootstrap()
+    const identity = bootstrap.identity
+    const relayMap = bootstrap.relayMap
 
-  try {
-    relayMap = await resolveRelayMap({
-      merchantPubkey: identity.merchantPubkey,
-      discoveryRelays: identity.discoveryRelays
-    })
-    console.log('[shop] resolved relay map', relayMap)
-  } catch (cause) {
-    relayWarning.value = 'Relay connection failed. Please check relay connectivity and try again.'
-    error.value = ''
-    console.error('[shop] relay resolution failed', cause)
-    loading.value = false
-    return
-  }
-
-  try {
-    merchantProfile.value = await fetchMerchantProfile({
-      merchantPubkey: identity.merchantPubkey,
-      relays: relayMap.merchantOutbox
-    })
-  } catch (cause) {
-    console.warn('[shop] profile fetch failed, continuing', cause)
-  }
-
-  try {
-
-    products.value = await fetchProducts({
-      merchantPubkey: identity.merchantPubkey,
-      relays: relayMap.merchantOutbox
-    })
-    console.log('[shop] loaded products', products.value)
+    merchantNpub.value = identity?.merchantNpub || ''
+    merchantProfile.value = bootstrap.merchantProfile || null
+    products.value = bootstrap.products || []
     hasConfirmedProductQuery.value = true
     showNoProductsDialog.value = products.value.length === 0
 
     setShopDebug({
-      merchantNpub: identity.merchantNpub,
-      merchantPubkey: identity.merchantPubkey,
-      identitySource: identity.source,
-      relaySource: relayMap.sources.merchant,
-      merchantOutbox: relayMap.merchantOutbox,
-      merchantInbox: relayMap.merchantInbox,
-      paymentListenRelays: relayMap.paymentListenRelays,
-      orderPublishRelays: relayMap.orderPublishRelays,
+      merchantNpub: identity?.merchantNpub || '',
+      merchantPubkey: identity?.merchantPubkey || '',
+      identitySource: identity?.source || '',
+      relaySource: relayMap?.sources?.merchant || '',
+      merchantOutbox: relayMap?.merchantOutbox || [],
+      merchantInbox: relayMap?.merchantInbox || [],
+      paymentListenRelays: relayMap?.paymentListenRelays || [],
+      orderPublishRelays: relayMap?.orderPublishRelays || [],
       lastPage: 'index',
       details: {
         productsLoaded: products.value.length,
@@ -111,13 +54,8 @@ onMounted(async () => {
       }
     })
   } catch (cause) {
-    if (isRelayIssue(cause)) {
-      relayWarning.value = 'Relay connection failed while loading products. Please retry once relays are reachable.'
-      error.value = ''
-    } else {
-      error.value = cause.message || 'Failed to load products.'
-    }
-    console.error('[shop] failed loading products', cause)
+    relayWarning.value = 'Relay connection failed while loading products. Please retry once relays are reachable.'
+    error.value = ''
   } finally {
     loading.value = false
   }

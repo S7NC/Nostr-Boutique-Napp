@@ -1,7 +1,7 @@
 <script setup>
 import QRCode from 'qrcode'
 import { useCartStore } from '~/stores/cart'
-import { useShopIdentity } from '~/composables/useShopIdentity'
+import { useShopBootstrap } from '~/composables/useShopBootstrap'
 import { useRelayLists } from '~/composables/useRelayLists'
 import { useNostrOrders } from '~/composables/useNostrOrders'
 import { useFiatToSats } from '~/composables/useFiatToSats'
@@ -16,7 +16,7 @@ useSeoMeta({
 })
 
 const cart = useCartStore()
-const { resolveIdentity } = useShopIdentity()
+const { ensureBootstrap, bootstrapState } = useShopBootstrap()
 const { resolveRelayMap } = useRelayLists()
 const { generateGuestIdentity, buildOrderEvent, signAndPublish, findPaymentRequest } = useNostrOrders()
 const { loading: ratesLoading, error: ratesError, convert, fetchRates } = useFiatToSats()
@@ -36,8 +36,8 @@ const confirmSavedKeys = ref(false)
 const pollTimer = ref(null)
 const invoiceFallbackError = ref('')
 const invoiceFallbackLoading = ref(false)
-const merchantProfile = ref(null)
-const merchantNpub = ref('')
+const merchantProfile = ref(bootstrapState.value.merchantProfile || null)
+const merchantNpub = ref(bootstrapState.value.identity?.merchantNpub || '')
 
 const form = reactive({
   name: cart.shippingInfo.name || '',
@@ -100,11 +100,16 @@ const refreshRelayMap = async () => {
 const setupCheckout = async () => {
   try {
     loadingSetup.value = true
-    merchantIdentity.value = await resolveIdentity()
+    const bootstrap = await ensureBootstrap()
+    merchantIdentity.value = bootstrap.identity
     merchantNpub.value = merchantIdentity.value.merchantNpub
-    console.log('[cart] resolved identity', merchantIdentity.value)
-    await refreshRelayMap()
-    console.log('[cart] resolved relay map', relayMap.value)
+    merchantProfile.value = bootstrap.merchantProfile || null
+
+    if (cart.guestKeys?.pubkey) {
+      await refreshRelayMap()
+    } else {
+      relayMap.value = bootstrap.relayMap
+    }
 
     setShopDebug({
       merchantNpub: merchantIdentity.value.merchantNpub,
@@ -122,7 +127,7 @@ const setupCheckout = async () => {
       }
     })
 
-    if (relayMap.value?.merchantOutbox?.length) {
+    if (!merchantProfile.value && relayMap.value?.merchantOutbox?.length) {
       merchantProfile.value = await fetchMerchantProfile({
         merchantPubkey: merchantIdentity.value.merchantPubkey,
         relays: relayMap.value.merchantOutbox

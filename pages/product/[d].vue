@@ -1,26 +1,22 @@
 <script setup>
-import { useShopIdentity } from '~/composables/useShopIdentity'
-import { useRelayLists } from '~/composables/useRelayLists'
+import { useShopBootstrap } from '~/composables/useShopBootstrap'
 import { useMarketplace } from '~/composables/useMarketplace'
-import { useMerchantProfile } from '~/composables/useMerchantProfile'
 import { useShopDebug } from '~/composables/useShopDebug'
 import { useCartStore } from '~/stores/cart'
 import ShopHeader from '~/components/shop/ShopHeader.vue'
 
 const route = useRoute()
 const cart = useCartStore()
-const { resolveIdentity } = useShopIdentity()
-const { resolveRelayMap } = useRelayLists()
+const { ensureBootstrap, bootstrapState } = useShopBootstrap()
 const { fetchProductByD } = useMarketplace()
-const { fetchMerchantProfile } = useMerchantProfile()
 const { setShopDebug } = useShopDebug()
 
 const product = ref(null)
 const quantity = ref(1)
 const loading = ref(true)
 const error = ref('')
-const merchantProfile = ref(null)
-const merchantNpub = ref('')
+const merchantProfile = ref(bootstrapState.value.merchantProfile || null)
+const merchantNpub = ref(bootstrapState.value.identity?.merchantNpub || '')
 
 const decodedDTag = computed(() => {
   const raw = Array.isArray(route.params.d) ? route.params.d[0] : route.params.d
@@ -44,36 +40,31 @@ const addToCart = () => {
 
 onMounted(async () => {
   try {
-    const identity = await resolveIdentity()
-    merchantNpub.value = identity.merchantNpub
-    console.log('[product] resolved identity', identity)
-    const relayMap = await resolveRelayMap({
-      merchantPubkey: identity.merchantPubkey,
-      discoveryRelays: identity.discoveryRelays
-    })
-    console.log('[product] resolved relay map', relayMap)
+    const bootstrap = await ensureBootstrap()
+    const identity = bootstrap.identity
+    const relayMap = bootstrap.relayMap
 
-    merchantProfile.value = await fetchMerchantProfile({
-      merchantPubkey: identity.merchantPubkey,
-      relays: relayMap.merchantOutbox
-    })
+    merchantNpub.value = identity?.merchantNpub || ''
+    merchantProfile.value = bootstrap.merchantProfile || null
 
-    product.value = await fetchProductByD({
-      merchantPubkey: identity.merchantPubkey,
-      dTag: decodedDTag.value,
-      relays: relayMap.merchantOutbox
-    })
-    console.log('[product] loaded product', product.value)
+    product.value = (bootstrap.products || []).find((entry) => entry.d === decodedDTag.value) || null
+    if (!product.value && identity?.merchantPubkey && relayMap?.merchantOutbox?.length) {
+      product.value = await fetchProductByD({
+        merchantPubkey: identity.merchantPubkey,
+        dTag: decodedDTag.value,
+        relays: relayMap.merchantOutbox
+      })
+    }
 
     setShopDebug({
-      merchantNpub: identity.merchantNpub,
-      merchantPubkey: identity.merchantPubkey,
-      identitySource: identity.source,
-      relaySource: relayMap.sources.merchant,
-      merchantOutbox: relayMap.merchantOutbox,
-      merchantInbox: relayMap.merchantInbox,
-      paymentListenRelays: relayMap.paymentListenRelays,
-      orderPublishRelays: relayMap.orderPublishRelays,
+      merchantNpub: identity?.merchantNpub || '',
+      merchantPubkey: identity?.merchantPubkey || '',
+      identitySource: identity?.source || '',
+      relaySource: relayMap?.sources?.merchant || '',
+      merchantOutbox: relayMap?.merchantOutbox || [],
+      merchantInbox: relayMap?.merchantInbox || [],
+      paymentListenRelays: relayMap?.paymentListenRelays || [],
+      orderPublishRelays: relayMap?.orderPublishRelays || [],
       lastPage: 'product',
       details: {
         productDTag: decodedDTag.value,
