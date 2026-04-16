@@ -1,17 +1,29 @@
 <script setup>
-import NsiteCloneFab from '~/components/shop/NsiteCloneFab.vue'
+import DeveloperConsoleFab from '~/components/shop/DeveloperConsoleFab.vue'
 import ShopSplash from '~/components/shop/ShopSplash.vue'
 import { useShopBootstrap } from '~/composables/useShopBootstrap'
 
 const { bootstrapState, ensureBootstrap } = useShopBootstrap()
 const route = useRoute()
 
+useHead(() => {
+  const storeName = bootstrapState.value.merchantProfile?.name?.trim()
+  const baseTitle = storeName ? `Nostr Boutique - ${storeName}` : 'Nostr Boutique'
+
+  return {
+    titleTemplate: (titleChunk) => {
+      if (!titleChunk) return baseTitle
+      if (titleChunk === baseTitle || titleChunk === 'Nostr Boutique') return baseTitle
+      return `${titleChunk} | ${baseTitle}`
+    }
+  }
+})
+
 const shouldBootstrapRoute = computed(() => {
   const path = route.path || ''
   return path === '/'
     || path === '/products'
     || path === '/categories'
-    || path === '/portal'
     || path === '/cart'
     || path.startsWith('/product/')
 })
@@ -46,9 +58,10 @@ watch(shouldBootstrapRoute, async (needsBootstrap) => {
       v-if="shouldBootstrapRoute && !bootstrapState.isBootstrapped"
       :loading="bootstrapState.isBootstrapping"
       :error="bootstrapState.error"
+      :status-text="bootstrapState.statusText"
       @retry="retryBootstrap"
     />
     <NuxtPage />
-    <NsiteCloneFab />
+    <DeveloperConsoleFab hidden-trigger />
   </div>
 </template>

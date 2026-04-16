@@ -1,12 +1,36 @@
 <script setup>
 import { useShopDebug } from '~/composables/useShopDebug'
 
+const props = defineProps({
+  hiddenTrigger: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const open = ref(false)
 const { debugState } = useShopDebug()
+
+const openConsole = () => {
+  open.value = true
+}
+
+onMounted(() => {
+  if (process.client) {
+    window.addEventListener('shop:open-dev-console', openConsole)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (process.client) {
+    window.removeEventListener('shop:open-dev-console', openConsole)
+  }
+})
 </script>
 
 <template>
   <button
+    v-if="!props.hiddenTrigger"
     class="fixed bottom-6 left-6 z-40 rounded-full border border-cyan-300/40 bg-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-100 backdrop-blur"
     @click="open = true"
   >

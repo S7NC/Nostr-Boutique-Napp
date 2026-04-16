@@ -9,6 +9,10 @@ import {
 } from '~/composables/useMerchantTheme'
 
 let bootstrapPromise = null
+const PRODUCT_RETRY_ATTEMPTS = 3
+const PRODUCT_RETRY_DELAY_MS = 1500
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export const useShopBootstrap = () => {
   const { resolveIdentity } = useShopIdentity()
@@ -21,6 +25,7 @@ export const useShopBootstrap = () => {
     isBootstrapping: false,
     isBootstrapped: false,
     error: '',
+    statusText: 'Connecting to relays...',
     identity: null,
     relayMap: null,
     merchantProfile: null,
@@ -42,26 +47,56 @@ export const useShopBootstrap = () => {
     state.value = {
       ...state.value,
       isBootstrapping: true,
-      error: ''
+      error: '',
+      statusText: 'Connecting to relays...'
     }
 
     bootstrapPromise = (async () => {
       try {
         const identity = await resolveIdentity()
+        state.value = {
+          ...state.value,
+          statusText: 'Fetching merchant relays...'
+        }
         const relayMap = await resolveRelayMap({
           merchantPubkey: identity.merchantPubkey,
           discoveryRelays: identity.discoveryRelays
         })
+
+        state.value = {
+          ...state.value,
+          statusText: 'Loading shop inventory...'
+        }
+
+        const loadProductsWithRetry = async () => {
+          let latestProducts = []
+
+          for (let attempt = 1; attempt <= PRODUCT_RETRY_ATTEMPTS; attempt += 1) {
+            latestProducts = await fetchProducts({
+              merchantPubkey: identity.merchantPubkey,
+              relays: relayMap.merchantOutbox
+            })
+
+            if (latestProducts.length > 0 || attempt === PRODUCT_RETRY_ATTEMPTS) {
+              return latestProducts
+            }
+
+            state.value = {
+              ...state.value,
+              statusText: 'Retrying, hold on.'
+            }
+            await wait(PRODUCT_RETRY_DELAY_MS)
+          }
+
+          return latestProducts
+        }
 
         const [merchantProfile, products, merchantThemeResult] = await Promise.all([
           fetchMerchantProfile({
             merchantPubkey: identity.merchantPubkey,
             relays: relayMap.merchantOutbox
           }).catch(() => null),
-          fetchProducts({
-            merchantPubkey: identity.merchantPubkey,
-            relays: relayMap.merchantOutbox
-          }),
+          loadProductsWithRetry(),
           fetchMerchantTheme({
             merchantPubkey: identity.merchantPubkey,
             relays: relayMap.merchantOutbox
@@ -83,6 +118,7 @@ export const useShopBootstrap = () => {
           isBootstrapping: false,
           isBootstrapped: true,
           error: '',
+          statusText: '',
           identity,
           relayMap,
           merchantProfile,
@@ -98,7 +134,8 @@ export const useShopBootstrap = () => {
           ...state.value,
           isBootstrapping: false,
           isBootstrapped: false,
-          error: cause.message || 'Failed to load shop data.'
+          error: cause.message || 'Failed to load shop data.',
+          statusText: ''
         }
         throw cause
       } finally {

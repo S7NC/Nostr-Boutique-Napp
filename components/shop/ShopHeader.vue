@@ -83,6 +83,15 @@ watch(() => route.fullPath, () => {
 
 onMounted(() => {
   initializeTheme()
+  if (process.client) {
+    window.addEventListener('shop:open-search', openSearchModal)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (process.client) {
+    window.removeEventListener('shop:open-search', openSearchModal)
+  }
 })
 </script>
 

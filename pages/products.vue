@@ -3,16 +3,19 @@ import { useShopBootstrap } from '~/composables/useShopBootstrap'
 import { useShopDebug } from '~/composables/useShopDebug'
 import { useCartStore } from '~/stores/cart'
 import ShopHeader from '~/components/shop/ShopHeader.vue'
+import ShopFooter from '~/components/shop/ShopFooter.vue'
 import ProductCard from '~/components/shop/ProductCard.vue'
 
 useSeoMeta({
-  title: 'All Products | Gamma Market Webshop',
+  title: 'Products',
   description: 'Browse the full merchant inventory.'
 })
 
 const cart = useCartStore()
 const { ensureBootstrap, bootstrapState } = useShopBootstrap()
 const { setShopDebug } = useShopDebug()
+const route = useRoute()
+const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
@@ -27,6 +30,15 @@ const selectedCategories = ref([])
 const UNCATEGORIZED_KEY = '__uncategorized__'
 
 const normalizeCategory = (value) => String(value || '').trim()
+
+const getRouteCategoryKeys = () => {
+  return Array.from(new Set(
+    ([]).concat(route.query.category || [])
+      .map(normalizeCategory)
+      .filter(Boolean)
+      .map((category) => category.toLowerCase())
+  ))
+}
 
 const getCategoryKeys = (product) => {
   return Array.from(new Set(
@@ -112,7 +124,14 @@ const resultCountLabel = computed(() => {
 const clearFilters = () => {
   searchQuery.value = ''
   selectedCategories.value = []
+  if (route.query.category) {
+    router.replace({ query: { ...route.query, category: undefined } })
+  }
 }
+
+watch(() => route.query.category, () => {
+  selectedCategories.value = getRouteCategoryKeys()
+}, { immediate: true })
 
 onMounted(async () => {
   try {
@@ -151,10 +170,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen pb-12">
+  <div class="flex min-h-screen flex-col">
     <ShopHeader :item-count="cart.totalItems" :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
 
-    <main class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
+    <main class="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 sm:px-6 lg:px-8">
       <section v-if="relayWarning" class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
         {{ relayWarning }}
       </section>
@@ -243,5 +262,7 @@ onMounted(async () => {
         </div>
       </section>
     </main>
+
+    <ShopFooter :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
   </div>
 </template>

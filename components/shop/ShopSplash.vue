@@ -7,6 +7,10 @@ defineProps({
   error: {
     type: String,
     default: ''
+  },
+  statusText: {
+    type: String,
+    default: 'Connecting to relays...'
   }
 })
 
@@ -26,7 +30,7 @@ const NOSTR_OSTRICH_ANIM_URL = '/nostr-assets/nostr-ostrich-running.gif'
       <h2 class="mt-3 text-xl font-semibold">Loading shop...</h2>
       <p class="mt-2 text-sm text-[var(--muted)]">Before we shop the shop, we are fetching everything from relays.</p>
 
-      <p v-if="loading" class="mt-3 text-sm text-[var(--muted)]">Connecting to relays...</p>
+      <p v-if="loading" class="mt-3 text-sm text-[var(--muted)]">{{ statusText }}</p>
 
       <div v-else-if="error" class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-left text-sm text-red-800">
         <p class="font-semibold">Could not load the shop.</p>

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildRootCloneManifestTemplate } from '../composables/useNsiteClone.js'
+import { buildRootCloneManifestTemplate, TEMPLATE_MUSE_PUBKEY } from '../composables/useNsiteClone.js'
 
 test('buildRootCloneManifestTemplate converts named manifests to root', () => {
   const sourceManifest = {
@@ -27,7 +27,7 @@ test('buildRootCloneManifestTemplate converts named manifests to root', () => {
   assert.ok(template.tags.some((tag) => tag[0] === 'x'))
   assert.ok(!template.tags.some((tag) => tag[0] === 'd'))
   assert.ok(!template.tags.some((tag) => tag[0] === 'name'))
-  assert.ok(template.tags.some((tag) => tag[0] === 'muse' && tag[1] === 'abcdef0123456789'))
+  assert.ok(template.tags.some((tag) => tag[0] === 'muse' && tag[1] === TEMPLATE_MUSE_PUBKEY))
 
   const relayTags = template.tags.filter((tag) => tag[0] === 'relay').map((tag) => tag[1]).sort()
   assert.deepEqual(relayTags, ['wss://relay.damus.io', 'wss://relay.nos.lol', 'wss://relay.primal.net'])
@@ -51,5 +51,5 @@ test('buildRootCloneManifestTemplate keeps root manifests root', () => {
 
   assert.equal(template.kind, 15128)
   assert.ok(template.tags.some((tag) => tag[0] === 'relay' && tag[1] === 'wss://relay.ditto.pub'))
-  assert.ok(template.tags.some((tag) => tag[0] === 'muse' && tag[1] === '0011223344556677'))
+  assert.ok(template.tags.some((tag) => tag[0] === 'muse' && tag[1] === TEMPLATE_MUSE_PUBKEY))
 })

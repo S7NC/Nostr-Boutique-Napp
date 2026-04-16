@@ -1,13 +1,13 @@
 {
-  "name": "nuxtstack",
-  "title": "Nuxtstack",
-  "description": "Similar to MKstack, but build upon Nuxt with Vue and Javascript only (so no React and no Typescript).",
+  "name": "nostr-boutique",
+  "title": "Nostr Boutique",
+  "description": "Nostr-powered boutique storefront for merchant inventories and checkout.",
   "commands": [
     "npm",
     "npx"
   ],
-  "uri": "git+https://gitlab.com/sebastix-group/nostr/nuxtstack.git",
-  "image": "https://gitlab.com/sebastix-group/nostr/nuxtstack/-/raw/master/public/nuxtstack-cover.png",
+  "uri": "git+https://github.com/S7NC/Nostr-Boutique-Napp.git",
+  "image": "https://raw.githubusercontent.com/S7NC/Nostr-Boutique-Napp/main/public/nuxtstack-cover.png",
   "license": "MIT",
   "tech": [
     "vue",

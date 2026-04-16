@@ -1,11 +1,12 @@
 <script setup>
 import ShopHeader from '~/components/shop/ShopHeader.vue'
+import ShopFooter from '~/components/shop/ShopFooter.vue'
 import { useCartStore } from '~/stores/cart'
 import { useShopBootstrap } from '~/composables/useShopBootstrap'
 import { buildNamedNsiteUrl } from '~/composables/useNamedNsiteUrl'
 
 useSeoMeta({
-  title: 'Merchant Portal | Gamma Market Webshop',
+  title: 'Merchant Portal',
   description: 'Connect to merchant portal deployment gateways.'
 })
 
@@ -137,10 +138,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen pb-12">
+  <div class="flex min-h-screen flex-col">
     <ShopHeader :item-count="cart.totalItems" :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
 
-    <main class="mx-auto flex max-w-6xl items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
+    <main class="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
       <section class="w-full max-w-2xl rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center sm:p-8">
         <img
           :src="NOSTR_OSTRICH_ANIM_URL"
@@ -172,5 +173,7 @@ onMounted(async () => {
         </button>
       </section>
     </main>
+
+    <ShopFooter :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
   </div>
 </template>

@@ -2,6 +2,8 @@ import { SimplePool } from 'nostr-tools/pool'
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure'
 import * as nip19 from 'nostr-tools/nip19'
 
+export const TEMPLATE_MUSE_PUBKEY = '7bdef7bec5ab54644d2d202cc62378a994df14e4d7acaffed58081e97460b895'
+
 const toRelay = (value) => {
   if (typeof value !== 'string') return ''
   const relay = value.trim()
@@ -60,7 +62,7 @@ export const buildRootCloneManifestTemplate = ({ sourceManifest, sourcePubkey, r
     tags: [
       ...nonRelayTags,
       ...relayTags,
-      ['muse', sourcePubkey, ...uniq(relays || []).slice(0, 3)]
+      ['muse', TEMPLATE_MUSE_PUBKEY, ...uniq(relays || []).slice(0, 3)]
     ],
     content: sourceManifest?.content || ''
   }
@@ -142,6 +144,7 @@ export const useNsiteClone = () => {
     resolveSourceNpub,
     fetchSourceManifest,
     publishProfile,
-    publishClonedManifest
+    publishClonedManifest,
+    TEMPLATE_MUSE_PUBKEY
   }
 }

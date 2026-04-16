@@ -3,10 +3,10 @@ import { useShopBootstrap } from '~/composables/useShopBootstrap'
 import { useShopDebug } from '~/composables/useShopDebug'
 import { useCartStore } from '~/stores/cart'
 import ShopHeader from '~/components/shop/ShopHeader.vue'
+import ShopFooter from '~/components/shop/ShopFooter.vue'
 import ProductCard from '~/components/shop/ProductCard.vue'
 
 useSeoMeta({
-  title: 'Gamma Market Webshop',
   description: 'Minimal NIP-99 webshop with Gamma market checkout flow.'
 })
 
@@ -25,6 +25,15 @@ const showNoProductsDialog = ref(false)
 
 const latestProducts = computed(() => products.value.slice(0, 3))
 const inventoryProducts = computed(() => products.value.slice(3, 15))
+const heroBackground = computed(() => {
+  return merchantProfile.value?.banner || merchantProfile.value?.picture || ''
+})
+const merchantName = computed(() => {
+  return merchantProfile.value?.name?.trim() || 'Nostr Boutique'
+})
+const merchantTagline = computed(() => {
+  return merchantProfile.value?.about?.trim() || 'Discover the latest drops, timeless staples, and peer-to-peer commerce powered by Nostr.'
+})
 
 onMounted(async () => {
   try {
@@ -64,10 +73,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen pb-12">
+  <div class="flex min-h-screen flex-col">
     <ShopHeader :item-count="cart.totalItems" :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
 
-    <main class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
+    <main class="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 sm:px-6 lg:px-8">
       <section v-if="relayWarning" class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
         {{ relayWarning }}
       </section>
@@ -86,6 +95,42 @@ onMounted(async () => {
       </section>
 
       <section v-else>
+        <section
+          class="relative mb-10 overflow-hidden rounded-[2rem] border border-[var(--line)] bg-stone-900 text-white"
+        >
+          <div
+            class="absolute inset-0 bg-cover bg-center"
+            :style="heroBackground ? { backgroundImage: `url(${heroBackground})` } : undefined"
+          />
+          <div class="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/35" />
+          <div class="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/50 to-transparent" />
+
+          <div class="relative grid min-h-[360px] gap-8 px-6 py-10 sm:px-8 lg:grid-cols-[minmax(0,1.2fr)_280px] lg:px-12 lg:py-14">
+            <div class="flex max-w-2xl flex-col justify-end">
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">Welcome to our shop !</p>
+              <h1 class="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">{{ merchantName }}</h1>
+              <p class="mt-4 max-w-xl text-sm leading-6 text-white/82 sm:text-base">
+                {{ merchantTagline }}
+              </p>
+
+              <div class="mt-6 flex flex-wrap gap-3 text-sm">
+                <NuxtLink
+                  to="/products"
+                  class="inline-flex items-center rounded-full bg-white px-5 py-2.5 font-semibold !text-black transition hover:bg-stone-100 dark:!text-black"
+                >
+                  Browse inventory
+                </NuxtLink>
+                <NuxtLink
+                  to="/categories"
+                  class="inline-flex items-center rounded-full border border-white/30 bg-black px-5 py-2.5 font-semibold !text-white transition hover:bg-black/85 dark:!text-white"
+                >
+                  Explore categories
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div class="mb-8">
           <div class="mb-3 flex items-end justify-between gap-3">
             <h2 class="text-xl font-semibold tracking-tight">New Arrivals</h2>
@@ -116,6 +161,8 @@ onMounted(async () => {
         </div>
       </section>
     </main>
+
+    <ShopFooter :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
 
     <div
       v-if="showNoProductsDialog && hasConfirmedProductQuery && !relayWarning && !error"

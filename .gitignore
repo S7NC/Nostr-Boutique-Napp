@@ -34,3 +34,5 @@ tools/
 .env
 .env.*
 !.env.example
+.nsyte-bin
+.bin/nsyte

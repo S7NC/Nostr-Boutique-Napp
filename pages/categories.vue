@@ -3,9 +3,11 @@ import { useShopBootstrap } from '~/composables/useShopBootstrap'
 import { useShopDebug } from '~/composables/useShopDebug'
 import { useCartStore } from '~/stores/cart'
 import ShopHeader from '~/components/shop/ShopHeader.vue'
+import ShopFooter from '~/components/shop/ShopFooter.vue'
+import ProductCard from '~/components/shop/ProductCard.vue'
 
 useSeoMeta({
-  title: 'Categories | Gamma Market Webshop',
+  title: 'Categories',
   description: 'Browse product categories from current inventory.'
 })
 
@@ -36,9 +38,13 @@ const categoryBlocks = computed(() => {
       const entry = byKey.get(key) || {
         key,
         label: category,
-        count: 0
+        count: 0,
+        products: []
       }
       entry.count += 1
+      if (entry.products.length < 4) {
+        entry.products.push(product)
+      }
       byKey.set(key, entry)
     }
   }
@@ -86,10 +92,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen pb-12">
+  <div class="flex min-h-screen flex-col">
     <ShopHeader :item-count="cart.totalItems" :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
 
-    <main class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
+    <main class="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 sm:px-6 lg:px-8">
       <section v-if="relayWarning" class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
         {{ relayWarning }}
       </section>
@@ -113,7 +119,7 @@ onMounted(async () => {
           <p class="text-xs text-[var(--muted)]">{{ categoryBlocks.length }} categories</p>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="space-y-6">
           <div
             v-for="category in categoryBlocks"
             :key="category.key"
@@ -121,9 +127,26 @@ onMounted(async () => {
           >
             <p class="text-lg font-semibold">{{ category.label }}</p>
             <p class="mt-1 text-sm text-[var(--muted)]">{{ category.count }} products</p>
+
+            <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <ProductCard
+                v-for="product in category.products"
+                :key="`${category.key}-${product.id}`"
+                :product="product"
+              />
+            </div>
+
+            <NuxtLink
+              :to="{ path: '/products', query: { category: category.key } }"
+              class="mt-4 inline-flex text-sm text-[var(--muted)] transition hover:text-black"
+            >
+              View more from this category
+            </NuxtLink>
           </div>
         </div>
       </section>
     </main>
+
+    <ShopFooter :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
   </div>
 </template>

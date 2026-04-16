@@ -4,6 +4,7 @@ import { useMarketplace } from '~/composables/useMarketplace'
 import { useShopDebug } from '~/composables/useShopDebug'
 import { useCartStore } from '~/stores/cart'
 import ShopHeader from '~/components/shop/ShopHeader.vue'
+import ShopFooter from '~/components/shop/ShopFooter.vue'
 
 const route = useRoute()
 const cart = useCartStore()
@@ -17,6 +18,13 @@ const loading = ref(true)
 const error = ref('')
 const merchantProfile = ref(bootstrapState.value.merchantProfile || null)
 const merchantNpub = ref(bootstrapState.value.identity?.merchantNpub || '')
+
+watchEffect(() => {
+  useSeoMeta({
+    title: product.value?.title || 'Product',
+    description: product.value?.summary || product.value?.description || 'Browse product details and availability.'
+  })
+})
 
 const decodedDTag = computed(() => {
   const raw = Array.isArray(route.params.d) ? route.params.d[0] : route.params.d
@@ -86,10 +94,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen pb-12">
+  <div class="flex min-h-screen flex-col">
     <ShopHeader :item-count="cart.totalItems" :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
 
-    <main class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
+    <main class="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 sm:px-6 lg:px-8">
       <NuxtLink to="/" class="text-sm font-medium">← Back to products</NuxtLink>
 
       <section v-if="loading" class="mt-4 grid animate-pulse gap-6 lg:grid-cols-2">
@@ -149,5 +157,7 @@ onMounted(async () => {
         </div>
       </section>
     </main>
+
+    <ShopFooter :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
   </div>
 </template>

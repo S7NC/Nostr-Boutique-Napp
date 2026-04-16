@@ -1,11 +1,9 @@
 <script setup>
+import * as nip19 from 'nostr-tools/nip19'
 import { useShopDebug } from '~/composables/useShopDebug'
-import { useNsiteClone } from '~/composables/useNsiteClone'
+import { buildRootCloneManifestTemplate, useNsiteClone } from '~/composables/useNsiteClone'
 
 const isOpen = ref(false)
-const cloneWidgetReady = ref(false)
-const cloneWidgetError = ref('')
-const cloneElementTag = ref('')
 const currentUrl = ref('')
 const cloneMode = ref('choice')
 const newcomerName = ref('')
@@ -15,6 +13,9 @@ const newcomerBusy = ref(false)
 const newcomerError = ref('')
 const newcomerSuccessUrl = ref('')
 const newcomerPublishRelays = ref([])
+const existingBusy = ref(false)
+const existingError = ref('')
+const existingSuccessUrl = ref('')
 
 const { debugState, setShopDebug } = useShopDebug()
 const {
@@ -26,9 +27,14 @@ const {
   publishClonedManifest
 } = useNsiteClone()
 
-const NSITE_STEALTHIS_SCRIPT_ID = 'nsite-stealthis-script'
-const NSITE_STEALTHIS_SCRIPT_SRC = 'https://unpkg.com/@nsite/stealthis@0.7.0/dist/nsite-deploy.js'
 const NOSTR_OSTRICH_ANIM_URL = '/nostr-assets/nostr-ostrich-running.gif'
+
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const resetFlowState = () => {
   cloneMode.value = 'choice'
@@ -39,6 +45,9 @@ const resetFlowState = () => {
   newcomerError.value = ''
   newcomerSuccessUrl.value = ''
   newcomerPublishRelays.value = []
+  existingBusy.value = false
+  existingError.value = ''
+  existingSuccessUrl.value = ''
 }
 
 const closeModal = () => {
@@ -66,15 +75,7 @@ const copyText = async (value) => {
 
 const startExistingFlow = async () => {
   cloneMode.value = 'existing'
-  newcomerError.value = ''
-
-  try {
-    await loadCloneWidgetScript()
-    cloneWidgetError.value = ''
-  } catch (error) {
-    cloneWidgetError.value = error.message || 'Failed to load clone tool.'
-    console.error('[nsite-clone] failed to load clone tool', error)
-  }
+  existingError.value = ''
 }
 
 const startNewFlow = () => {
@@ -198,49 +199,78 @@ const publishAndCloneForNewcomer = async () => {
   }
 }
 
-const resolveCloneTag = () => {
-  if (!process.client) return ''
-  if (window.customElements?.get('steal-this')) return 'steal-this'
-  if (window.customElements?.get('nsite-deploy')) return 'nsite-deploy'
-  return ''
-}
+const publishAndCloneForExistingUser = async () => {
+  existingError.value = ''
 
-const loadCloneWidgetScript = async () => {
-  if (!process.client) return
-
-  const availableTag = resolveCloneTag()
-  if (availableTag) {
-    cloneElementTag.value = availableTag
-    cloneWidgetReady.value = true
-    console.log('[nsite-clone] clone element ready', availableTag)
+  if (!process.client || !window.nostr?.getPublicKey || !window.nostr?.signEvent) {
+    existingError.value = 'No Nostr browser signer found. Please install a NIP-07 extension first.'
     return
   }
 
-  const existing = document.getElementById(NSITE_STEALTHIS_SCRIPT_ID)
-  if (existing) {
-    await new Promise((resolve, reject) => {
-      existing.addEventListener('load', resolve, { once: true })
-      existing.addEventListener('error', reject, { once: true })
+  try {
+    existingBusy.value = true
+
+    const candidateRelays = getCandidateRelays()
+    const sourceNpub = resolveSourceNpub({
+      hostname: window.location.hostname,
+      fallbackNpub: debugState.value.merchantNpub
     })
-    cloneElementTag.value = resolveCloneTag()
-    cloneWidgetReady.value = !!cloneElementTag.value
-    console.log('[nsite-clone] clone element ready after existing script', cloneElementTag.value)
-    return
+
+    if (!sourceNpub) {
+      throw new Error('Could not resolve source nsite npub for cloning.')
+    }
+
+    const source = await fetchSourceManifest({
+      sourceNpub,
+      relays: candidateRelays
+    })
+
+    const publishRelays = source.manifestRelays.length > 0
+      ? source.manifestRelays
+      : candidateRelays
+
+    const pubkey = await window.nostr.getPublicKey()
+    const cloneTemplate = buildRootCloneManifestTemplate({
+      sourceManifest: source.manifest,
+      sourcePubkey: source.sourcePubkey,
+      relays: publishRelays
+    })
+    const signedClone = await window.nostr.signEvent(cloneTemplate)
+
+    const { SimplePool } = await import('nostr-tools/pool')
+    const pool = new SimplePool()
+    const pubs = pool.publish(publishRelays, signedClone)
+    await Promise.any(pubs)
+    pool.close(publishRelays)
+
+    const npub = nip19.npubEncode(pubkey)
+    const siteUrl = `https://${npub}.nsite.lol/`
+    existingSuccessUrl.value = siteUrl
+
+    setShopDebug({
+      details: {
+        cloneExistingPublished: true,
+        cloneExistingManifestEventId: signedClone.id,
+        cloneExistingSiteUrl: siteUrl
+      }
+    })
+
+    const opened = window.open(siteUrl, '_blank', 'noopener,noreferrer')
+    if (!opened) {
+      existingError.value = 'Clone published, but your browser blocked opening the new site tab. Use the link below.'
+    }
+  } catch (error) {
+    existingError.value = error.message || 'Failed to clone this nsite with your existing signer.'
+    console.error('[nsite-clone] existing-user clone failed', error)
+    setShopDebug({
+      details: {
+        cloneExistingPublished: false,
+        cloneExistingError: existingError.value
+      }
+    })
+  } finally {
+    existingBusy.value = false
   }
-
-  await new Promise((resolve, reject) => {
-    const script = document.createElement('script')
-    script.id = NSITE_STEALTHIS_SCRIPT_ID
-    script.src = NSITE_STEALTHIS_SCRIPT_SRC
-    script.async = true
-    script.addEventListener('load', resolve, { once: true })
-    script.addEventListener('error', reject, { once: true })
-    document.head.appendChild(script)
-  })
-
-  cloneElementTag.value = resolveCloneTag()
-  cloneWidgetReady.value = !!cloneElementTag.value
-  console.log('[nsite-clone] clone element ready after script load', cloneElementTag.value)
 }
 
 onMounted(() => {
@@ -256,19 +286,28 @@ onMounted(() => {
 </script>
 
 <template>
-  <steal-this style="display: none" aria-hidden="true" />
-  <nsite-deploy style="display: none" aria-hidden="true" />
-
   <button
-    class="fixed bottom-6 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full border border-violet-300 bg-gradient-to-br from-violet-500 via-fuchsia-500 to-purple-700 shadow-[0_12px_30px_rgba(168,85,247,0.45)] transition hover:scale-[1.02] hover:shadow-[0_16px_34px_rgba(168,85,247,0.6)]"
+    class="inline-flex items-center justify-center border border-violet-300 bg-gradient-to-br from-violet-500 via-fuchsia-500 to-purple-700 text-white shadow-[0_12px_30px_rgba(168,85,247,0.45)] transition hover:scale-[1.02] hover:shadow-[0_16px_34px_rgba(168,85,247,0.6)]"
+    :class="props.embedded
+      ? 'h-9 gap-1.5 rounded-full px-3 py-2 text-xs font-semibold'
+      : 'fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full'"
     @click="isOpen = true"
   >
     <span class="sr-only">Open Nostr clone dialog</span>
-    <img :src="NOSTR_OSTRICH_ANIM_URL" alt="" class="h-10 w-10 object-contain" aria-hidden="true">
+    <img :src="NOSTR_OSTRICH_ANIM_URL" alt="" :class="props.embedded ? 'h-5 w-5 object-contain' : 'h-10 w-10 object-contain'" aria-hidden="true">
+    <span v-if="props.embedded">Clone This Nsite</span>
   </button>
 
   <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4" @click.self="closeModal">
     <div class="w-full max-w-xl rounded-2xl border border-violet-300/50 bg-[var(--surface)] p-6 shadow-2xl">
+      <a href="https://nostr.boutique" target="_blank" rel="noopener noreferrer" class="mb-4 block w-fit mx-auto">
+        <img
+          src="/Logo.png"
+          alt="Nostr Boutique logo"
+          class="h-14 w-auto dark:invert"
+          style="filter: none;"
+        >
+      </a>
       <h2 class="text-2xl font-bold">Congratulations you found something cool!</h2>
       <p class="mt-3 text-sm text-[var(--muted)]">
         Did you know you can have your own sovereign shop like this?
@@ -360,27 +399,30 @@ onMounted(() => {
       </div>
 
       <div v-else class="mt-5 rounded-xl border border-violet-300/40 bg-violet-500/10 p-4">
-        <steal-this
-          v-if="cloneWidgetReady && cloneElementTag === 'steal-this'"
-          button-text="Clone this Nsite to my own Npub !"
-          stat-text="%s npubs cloned this nsite"
-        />
-
-        <nsite-deploy
-          v-else-if="cloneWidgetReady && cloneElementTag === 'nsite-deploy'"
-          label="Clone this Nsite to my own Npub !"
-        />
-
         <button
-          v-else
           class="rounded-lg border border-violet-300 bg-violet-500 px-4 py-2 text-sm font-semibold text-white"
-          disabled
+          :disabled="existingBusy"
+          @click="publishAndCloneForExistingUser"
         >
-          Loading clone action...
+          {{ existingBusy ? 'Cloning with your signer...' : 'Clone this Nsite to my own Npub !' }}
         </button>
 
-        <p v-if="cloneWidgetError" class="mt-2 text-xs text-red-500">
-          {{ cloneWidgetError }}
+        <p class="mt-2 text-xs text-[var(--muted)]">
+          This uses your Nostr browser signer and always publishes the clone as your root site with the template `muse` tag.
+        </p>
+
+        <a
+          v-if="existingSuccessUrl"
+          :href="existingSuccessUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-3 inline-flex rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
+        >
+          Open my cloned Nsite
+        </a>
+
+        <p v-if="existingError" class="mt-2 text-xs text-red-500">
+          {{ existingError }}
         </p>
       </div>
 
@@ -405,29 +447,4 @@ onMounted(() => {
 </template>
 
 <style scoped>
-:deep(steal-this::part(trigger)) {
-  border: 1px solid #d8b4fe;
-  background: linear-gradient(135deg, #a855f7 0%, #d946ef 45%, #6d28d9 100%);
-  color: #ffffff;
-  border-radius: 9999px;
-  padding: 0.8rem 1.2rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-
-:deep(nsite-deploy::part(trigger)) {
-  border: 1px solid #d8b4fe;
-  background: linear-gradient(135deg, #a855f7 0%, #d946ef 45%, #6d28d9 100%);
-  color: #ffffff;
-  border-radius: 9999px;
-  padding: 0.8rem 1.2rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-
-:deep(steal-this::part(trigger):hover) {
-  filter: saturate(1.05) brightness(1.05);
-}
 </style>

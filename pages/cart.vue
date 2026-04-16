@@ -9,6 +9,7 @@ import { useLightningInvoice } from '~/composables/useLightningInvoice'
 import { useMerchantProfile } from '~/composables/useMerchantProfile'
 import { useShopDebug } from '~/composables/useShopDebug'
 import ShopHeader from '~/components/shop/ShopHeader.vue'
+import ShopFooter from '~/components/shop/ShopFooter.vue'
 
 useSeoMeta({
   title: 'Checkout',
@@ -368,10 +369,10 @@ watch(pricedCurrencies, async () => {
 </script>
 
 <template>
-  <div class="min-h-screen pb-12">
+  <div class="flex min-h-screen flex-col">
     <ShopHeader :item-count="cart.totalItems" :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
 
-    <main class="mx-auto max-w-5xl px-4 pt-8 sm:px-6 lg:px-8">
+    <main class="mx-auto w-full max-w-5xl flex-1 px-4 pt-8 sm:px-6 lg:px-8">
       <h1 class="text-3xl font-bold tracking-tight">Checkout</h1>
 
       <p class="mt-2 text-sm text-[var(--muted)]">
@@ -542,5 +543,7 @@ watch(pricedCurrencies, async () => {
         One or more product currencies could not be converted to sats. Please retry in a moment.
       </p>
     </main>
+
+    <ShopFooter :merchant-profile="merchantProfile" :merchant-npub="merchantNpub" />
   </div>
 </template>
