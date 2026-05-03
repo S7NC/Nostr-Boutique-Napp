@@ -52,7 +52,7 @@ const hasPaypal = computed(() => {
         </a>
       </div>
 
-      <div class="flex flex-col items-center justify-center gap-2 place-self-center">
+      <div class="flex flex-col items-start justify-center gap-2 place-self-start sm:items-center sm:place-self-center">
         <div class="inline-flex items-center" aria-label="Bitcoin payment option">
           <img src="/btc-button.png" alt="Pay with Bitcoin" class="h-9 w-auto">
         </div>
@@ -71,7 +71,7 @@ const hasPaypal = computed(() => {
           <NuxtLink to="/">Home</NuxtLink>
           <NuxtLink to="/products">Products</NuxtLink>
           <NuxtLink to="/categories">Categories</NuxtLink>
-          <NuxtLink to="/contact">About us</NuxtLink>
+          <NuxtLink to="/contact">About</NuxtLink>
           <NuxtLink to="/cart">Cart</NuxtLink>
         </div>
       </div>

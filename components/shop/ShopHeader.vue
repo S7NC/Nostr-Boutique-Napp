@@ -47,6 +47,12 @@ const loadSearchInventory = async () => {
   }
 }
 
+const ensureSearchInventoryLoaded = async () => {
+  if (!hasLoadedSearchInventory.value) {
+    await loadSearchInventory()
+  }
+}
+
 const openSearchModal = async () => {
   showSearchModal.value = true
   showMobileMenu.value = false
@@ -117,7 +123,7 @@ onBeforeUnmount(() => {
         <NuxtLink to="/">Home</NuxtLink>
         <NuxtLink to="/products">Products</NuxtLink>
         <NuxtLink to="/categories">Categories</NuxtLink>
-        <NuxtLink to="/contact">About us</NuxtLink>
+        <NuxtLink to="/contact">About</NuxtLink>
       </nav>
 
       <nav class="flex flex-1 items-center justify-end gap-4 text-sm font-medium">
@@ -140,7 +146,7 @@ onBeforeUnmount(() => {
         </NuxtLink>
 
         <button
-          class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)]"
+          class="hidden h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] md:inline-flex"
           @click="openSearchModal"
         >
           <span class="sr-only">Search products</span>
@@ -163,7 +169,7 @@ onBeforeUnmount(() => {
           :href="`https://njump.me/${merchantNpub}`"
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)]"
+          class="hidden h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] md:inline-flex"
         >
           <span class="sr-only">Open merchant npub</span>
           <img
@@ -177,7 +183,7 @@ onBeforeUnmount(() => {
 
         <button
           v-if="!hasMerchantTheme"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)]"
+          class="hidden h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] md:inline-flex"
           @click="toggleTheme"
         >
           <span class="sr-only">{{ theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode' }}</span>
@@ -237,6 +243,33 @@ onBeforeUnmount(() => {
         </button>
       </nav>
     </div>
+
+    <div class="mx-auto w-full max-w-6xl px-4 pb-3 md:hidden sm:px-6 lg:px-8">
+      <input
+        v-model="searchQuery"
+        type="search"
+        placeholder="Search products"
+        class="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-black"
+        @focus="ensureSearchInventoryLoaded"
+      >
+
+      <p v-if="searchLoading" class="mt-2 text-sm text-[var(--muted)]">Loading inventory…</p>
+      <p v-else-if="searchError" class="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-800">{{ searchError }}</p>
+
+      <div v-else-if="searchQuery.trim() && searchResults.length > 0" class="mt-2 space-y-2">
+        <NuxtLink
+          v-for="product in searchResults"
+          :key="product.id"
+          :to="productPath(product)"
+          class="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2"
+        >
+          <span class="min-w-0 truncate text-sm font-medium">{{ product.title }}</span>
+          <span class="shrink-0 text-xs text-[var(--muted)]">{{ product.price.display }}</span>
+        </NuxtLink>
+      </div>
+
+      <p v-else-if="searchQuery.trim()" class="mt-2 text-sm text-[var(--muted)]">No matching products.</p>
+    </div>
   </header>
 
   <div v-if="showMobileMenu" class="border-b border-[var(--line)] bg-[var(--surface)] md:hidden">
@@ -244,7 +277,68 @@ onBeforeUnmount(() => {
       <NuxtLink to="/" class="rounded-lg px-3 py-2">Home</NuxtLink>
       <NuxtLink to="/products" class="rounded-lg px-3 py-2">Products</NuxtLink>
       <NuxtLink to="/categories" class="rounded-lg px-3 py-2">Categories</NuxtLink>
-      <NuxtLink to="/contact" class="rounded-lg px-3 py-2">About us</NuxtLink>
+      <NuxtLink to="/contact" class="rounded-lg px-3 py-2">About</NuxtLink>
+
+      <div class="mt-1 flex items-center gap-2 px-3 py-2">
+        <a
+          v-if="merchantNpub"
+          :href="`https://njump.me/${merchantNpub}`"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)]"
+        >
+          <span class="sr-only">Open merchant npub</span>
+          <img
+            :src="NOSTR_OSTRICH_ICON_URL"
+            alt=""
+            class="h-5 w-5 object-contain"
+            :style="{ filter: theme === 'dark' ? 'invert(1)' : 'none' }"
+            aria-hidden="true"
+          >
+        </a>
+
+        <button
+          v-if="!hasMerchantTheme"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)]"
+          @click="toggleTheme"
+        >
+          <span class="sr-only">{{ theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode' }}</span>
+
+          <svg
+            v-if="theme === 'dark'"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            class="h-5 w-5"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2" />
+            <path d="M12 20v2" />
+            <path d="m4.93 4.93 1.41 1.41" />
+            <path d="m17.66 17.66 1.41 1.41" />
+            <path d="M2 12h2" />
+            <path d="M20 12h2" />
+            <path d="m6.34 17.66-1.41 1.41" />
+            <path d="m19.07 4.93-1.41 1.41" />
+          </svg>
+
+          <svg
+            v-else
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            class="h-5 w-5"
+            aria-hidden="true"
+          >
+            <path d="M12 3a7 7 0 1 0 9 9 9 9 0 1 1-9-9z" />
+          </svg>
+        </button>
+      </div>
     </nav>
   </div>
 

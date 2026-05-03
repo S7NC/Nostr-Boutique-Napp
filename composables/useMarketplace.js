@@ -86,6 +86,28 @@ const parseProductEvent = (event) => {
   }
 }
 
+const collectDeletionTargets = (deleteEvents) => {
+  const deletedRefs = new Set()
+  const deletedEventIds = new Set()
+
+  for (const event of deleteEvents) {
+    for (const tag of event.tags || []) {
+      if (tag[0] === 'a' && tag[1]?.startsWith('30402:')) {
+        deletedRefs.add(tag[1])
+      }
+
+      if (tag[0] === 'e' && tag[1]) {
+        deletedEventIds.add(tag[1])
+      }
+    }
+  }
+
+  return {
+    deletedRefs,
+    deletedEventIds
+  }
+}
+
 export const useMarketplace = () => {
   const pool = new SimplePool()
 
@@ -96,10 +118,45 @@ export const useMarketplace = () => {
       limit: 300
     })
 
-    return events
+    const deleteEvents = await pool.querySync(relays, {
+      kinds: [5],
+      authors: [merchantPubkey],
+      limit: 300
+    })
+
+    const { deletedRefs, deletedEventIds } = collectDeletionTargets(deleteEvents)
+
+    const parsedProducts = events
+      .filter((event) => {
+        const dTag = getTagValue(event.tags || [], 'd')
+        const reference = dTag ? `30402:${event.pubkey}:${dTag}` : ''
+        if (event.id && deletedEventIds.has(event.id)) return false
+        if (reference && deletedRefs.has(reference)) return false
+        return true
+      })
       .map(parseProductEvent)
       .filter(Boolean)
-      .sort((a, b) => b.createdAt - a.createdAt)
+
+    const latestByD = new Map()
+    for (const product of parsedProducts) {
+      const existing = latestByD.get(product.d)
+      if (!existing) {
+        latestByD.set(product.d, product)
+        continue
+      }
+
+      if (product.createdAt > existing.createdAt) {
+        latestByD.set(product.d, product)
+        continue
+      }
+
+      if (product.createdAt === existing.createdAt && product.id > existing.id) {
+        latestByD.set(product.d, product)
+      }
+    }
+
+    return Array.from(latestByD.values())
+      .sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id))
   }
 
   const fetchProductByD = async ({ merchantPubkey, dTag, relays }) => {
@@ -110,10 +167,21 @@ export const useMarketplace = () => {
       limit: 10
     })
 
+    const deleteEvents = await pool.querySync(relays, {
+      kinds: [5],
+      authors: [merchantPubkey],
+      limit: 300
+    })
+
+    const { deletedRefs, deletedEventIds } = collectDeletionTargets(deleteEvents)
+    const reference = `30402:${merchantPubkey}:${dTag}`
+    if (deletedRefs.has(reference)) return null
+
     const product = events
+      .filter((event) => !(event.id && deletedEventIds.has(event.id)))
       .map(parseProductEvent)
       .filter(Boolean)
-      .sort((a, b) => b.createdAt - a.createdAt)[0]
+      .sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id))[0]
 
     return product || null
   }
